@@ -47,3 +47,7 @@ CVE-2026-88776: fixed by build
 CVE-2026-88777: fixed by build
 CVE-2026-88778: fixed by build
 ```
+
+## Mandiant Scanner
+
+mandiant-scanner.sh automates the checks found here, whilst attempting to skip those FPs found on real machines: https://cloud.google.com/blog/topics/threat-intelligence/defending-against-active-exploitation-of-citrix-netscaler-adc-and-gateway-appliances
