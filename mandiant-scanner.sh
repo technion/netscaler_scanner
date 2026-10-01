@@ -194,6 +194,32 @@ fi
 
 
 # ---------------------------------------------------------------------------
+# IOC source: https://github.com/rtkwlf/wolf-tools/tree/main/pack_alerts/202609-citrix-netscaler-active-exploitation-cve-2026-88771
+header 6 "CVE-2026-88771 dropped files (/var, /var/tmp/.nsmon)"
+explain \
+    "Command: ls -la /var/1.py /var/tmp/.s /var/tmp/.nsmon/.cfg /var/tmp/.nsmon/.state /var/tmp/.nsmon/nsmon.pl" \
+    "" \
+    "Files dropped during active exploitation of CVE-2026-88771, including" \
+    "the hidden '.nsmon' directory holding a Perl implant and its config/state." \
+    "" \
+    "Expected (clean): 'No such file or directory' for all five." \
+    "Suspicious: any of the files exists."
+
+OUT=$(ls -la /var/1.py /var/tmp/.s /var/tmp/.nsmon/.cfg /var/tmp/.nsmon/.state /var/tmp/.nsmon/nsmon.pl 2>&1)
+output "$OUT"
+
+FOUND=""
+for f in /var/1.py /var/tmp/.s /var/tmp/.nsmon/.cfg /var/tmp/.nsmon/.state /var/tmp/.nsmon/nsmon.pl; do
+    [ -e "$f" ] && FOUND="$FOUND $f"
+done
+if [ -n "$FOUND" ]; then
+    suspicious "CVE-2026-88771 artefacts present:$FOUND"
+else
+    clean "None of the CVE-2026-88771 files are present."
+fi
+
+
+# ---------------------------------------------------------------------------
 printf '\n==============================================================\n'
 printf 'SUMMARY\n'
 printf '==============================================================\n'
