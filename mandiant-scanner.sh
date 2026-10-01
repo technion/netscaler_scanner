@@ -218,6 +218,31 @@ else
     clean "None of the CVE-2026-88771 files are present."
 fi
 
+# ---------------------------------------------------------------------------
+# IOC source: own IOCs
+header 7 "Own IOCs (VPN theme / LogonPoint dropped files)"
+explain \
+    "Command: ls -la /var/vpn/themes/logon.php /var/vpn/theme/x.php /var/netscaler/logon/LogonPoint/custom/.ctxs.receiver" \
+    "" \
+    "Files from our own investigations: PHP files dropped in the VPN theme" \
+    "directories and a hidden '.ctxs.receiver' file in the LogonPoint custom" \
+    "directory." \
+    "" \
+    "Expected (clean): 'No such file or directory' for all three." \
+    "Suspicious: any of the files exists."
+
+OUT=$(ls -la /var/vpn/themes/logon.php /var/vpn/theme/x.php /var/netscaler/logon/LogonPoint/custom/.ctxs.receiver 2>&1)
+output "$OUT"
+
+FOUND=""
+for f in /var/vpn/themes/logon.php /var/vpn/theme/x.php /var/netscaler/logon/LogonPoint/custom/.ctxs.receiver; do
+    [ -e "$f" ] && FOUND="$FOUND $f"
+done
+if [ -n "$FOUND" ]; then
+    suspicious "Own IOC artefacts present:$FOUND"
+else
+    clean "None of the own IOC files are present."
+fi
 
 # ---------------------------------------------------------------------------
 printf '\n==============================================================\n'
