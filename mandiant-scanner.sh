@@ -218,6 +218,7 @@ else
     clean "None of the CVE-2026-88771 files are present."
 fi
 
+
 # ---------------------------------------------------------------------------
 # IOC source: own IOCs
 header 7 "Own IOCs (VPN theme / LogonPoint dropped files)"
@@ -243,6 +244,93 @@ if [ -n "$FOUND" ]; then
 else
     clean "None of the own IOC files are present."
 fi
+
+
+# ---------------------------------------------------------------------------
+# IOC source: https://github.com/watchtowrlabs/citrix-netscaler-cve-2026-88771-iocs/raw/refs/heads/main/iocs.md
+# ("Host-Based Artifacts > Dropped Files" table)
+WT_FILES="/var/tmp/wtw888 /var/tmp/cve88771 /var/tmp/cve88771_round2
+/netscaler/ns_gui/vpn/c88771.json
+/netscaler/ns_gui/vpn/id009.txt /netscaler/ns_gui/id009.txt
+/var/netscaler/logon/LogonPoint/ns_ctx.html
+/var/netscaler/logon/LogonPoint/.local_journal
+/var/netscaler/logon/LogonPoint/xua.html
+/var/netscaler/logon/LogonPoint/ns0e82mz.txt
+/var/1 /var/walk /usr/bin/walk"
+
+header 8 "watchTowr CVE-2026-88771 dropped files (fixed paths)"
+explain \
+    "Command: ls -la /var/tmp/wtw888 /var/tmp/cve88771* /netscaler/ns_gui/vpn/c88771.json \\" \
+    "               /netscaler/ns_gui/vpn/id009.txt /netscaler/ns_gui/id009.txt \\" \
+    "               /var/netscaler/logon/LogonPoint/{ns_ctx.html,.local_journal,xua.html,ns0e82mz.txt,logon.js} \\" \
+    "               /var/1 /var/walk /usr/bin/walk" \
+    "" \
+    "Files from watchTowr's CVE-2026-88771 IOC list: proof-of-execution markers," \
+    "web-served 'id' output, the '.local_journal' PHP webshell (served as a" \
+    "stylesheet), the /var/1 + walk SSH backdoor, and xua.html - a tar of" \
+    "/flash/nsconfig staged for exfiltration (if present, assume ns.conf and" \
+    "its credentials were taken)." \
+    "" \
+    "Expected (clean): 'No such file or directory' for all of them except" \
+    "possibly logon.js, which may be a legitimate file name." \
+    "Suspicious: any of the files exists. For logon.js, compare its date and" \
+    "contents against a known-good appliance on the same firmware."
+
+OUT=$(ls -la $WT_FILES /var/tmp/cve88771* /var/netscaler/logon/LogonPoint/logon.js 2>&1 | sort -u)
+output "$OUT"
+
+FOUND=""
+for f in $WT_FILES /var/tmp/cve88771*; do
+    [ -e "$f" ] && FOUND="$FOUND $f"
+done
+FOUND=$(printf '%s\n' $FOUND | sort -u | tr '\n' ' ')
+if [ -n "$(printf '%s' "$FOUND" | tr -d ' ')" ]; then
+    suspicious "watchTowr CVE-2026-88771 artefacts present: $FOUND"
+else
+    clean "None of the watchTowr dropped files are present."
+fi
+if [ -e /var/netscaler/logon/LogonPoint/logon.js ]; then
+    manual "/var/netscaler/logon/LogonPoint/logon.js exists - confirm it matches a known-good appliance."
+fi
+
+
+# ---------------------------------------------------------------------------
+# IOC source: https://github.com/watchtowrlabs/citrix-netscaler-cve-2026-88771-iocs/raw/refs/heads/main/iocs.md
+# ("Host-Based Artifacts > Dropped Files" table - sprayed webshells/markers)
+header 9 "watchTowr CVE-2026-88771 sprayed webshells and markers (filesystem-wide)"
+explain \
+    "Command: find -H / /var /flash /netscaler -xdev \\( -name x.php -o -name .x.php -o -name health.php \\" \
+    "              -o -name pwn.txt -o -name p.txt -o -name id009.txt \\) -exec ls -la {} \\;" \
+    "" \
+    "watchTowr report x.php, .x.php and health.php webshells sprayed into a" \
+    "large number of directories, plus pwn.txt / p.txt / id009.txt markers." \
+    "This searches every filesystem rather than a fixed list of directories." \
+    "It may take a few minutes." \
+    "" \
+    "Expected (clean): no output." \
+    "Suspicious: any x.php, .x.php, pwn.txt, p.txt or id009.txt. 'health.php'" \
+    "is a common name, so any hits are flagged for review - inspect the" \
+    "contents for webshell code."
+
+OUT=$(find -H /var /flash /netscaler -xdev \( -name 'x.php' -o -name '.x.php' -o -name 'health.php' \
+          -o -name 'pwn.txt' -o -name 'p.txt' -o -name 'id009.txt' \) 2>/dev/null | sort -u)
+LISTING=""
+[ -n "$OUT" ] && LISTING=$(printf '%s\n' "$OUT" | while IFS= read -r f; do ls -la "$f"; done)
+output "$LISTING"
+
+HITS=$(printf '%s\n' "$OUT" | grep -v '/health\.php$' | grep -v '^$')
+HEALTH=$(printf '%s\n' "$OUT" | grep '/health\.php$')
+if [ -n "$HITS" ]; then
+    suspicious "Sprayed webshell/marker files found:"
+    printf '%s\n' "$HITS" | sed 's/^/          /'
+else
+    clean "No x.php, .x.php, pwn.txt, p.txt or id009.txt files found."
+fi
+if [ -n "$HEALTH" ]; then
+    manual "health.php file(s) found - inspect for webshell code:"
+    printf '%s\n' "$HEALTH" | sed 's/^/          /'
+fi
+
 
 # ---------------------------------------------------------------------------
 printf '\n==============================================================\n'
