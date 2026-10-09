@@ -299,8 +299,8 @@ fi
 # ("Host-Based Artifacts > Dropped Files" table - sprayed webshells/markers)
 header 9 "watchTowr CVE-2026-88771 sprayed webshells and markers (filesystem-wide)"
 explain \
-    "Command: find -H / /var /flash /netscaler -xdev \\( -name x.php -o -name .x.php -o -name health.php \\" \
-    "              -o -name pwn.txt -o -name p.txt -o -name id009.txt \\) -exec ls -la {} \\;" \
+    "Command: find -H /var/netscaler /netscaler -xdev -type f \\( -name x.php -o -name .x.php -o -name health.php \\" \
+    "              -o -name pwn.txt -o -name p.txt -o -name id009.txt \\) -exec ls -la {} +" \
     "" \
     "watchTowr report x.php, .x.php and health.php webshells sprayed into a" \
     "large number of directories, plus pwn.txt / p.txt / id009.txt markers." \
@@ -312,14 +312,15 @@ explain \
     "is a common name, so any hits are flagged for review - inspect the" \
     "contents for webshell code."
 
-OUT=$(find -H /var /flash /netscaler -xdev \( -name 'x.php' -o -name '.x.php' -o -name 'health.php' \
-          -o -name 'pwn.txt' -o -name 'p.txt' -o -name 'id009.txt' \) 2>/dev/null | sort -u)
-LISTING=""
-[ -n "$OUT" ] && LISTING=$(printf '%s\n' "$OUT" | while IFS= read -r f; do ls -la "$f"; done)
+# Single find with -exec ... + : no sort, no while-read subshell, no second
+# pass over the results (the previous form segfaulted on some appliances).
+LISTING=$(find -H /var/netscaler /netscaler -xdev -type f \( -name 'x.php' -o -name '.x.php' \
+          -o -name 'health.php' -o -name 'pwn.txt' -o -name 'p.txt' -o -name 'id009.txt' \) \
+          -exec ls -la {} + 2>/dev/null)
 output "$LISTING"
 
-HITS=$(printf '%s\n' "$OUT" | grep -v '/health\.php$' | grep -v '^$')
-HEALTH=$(printf '%s\n' "$OUT" | grep '/health\.php$')
+HITS=$(printf '%s\n' "$LISTING" | grep -v '/health\.php$' | grep -v '^$')
+HEALTH=$(printf '%s\n' "$LISTING" | grep '/health\.php$')
 if [ -n "$HITS" ]; then
     suspicious "Sprayed webshell/marker files found:"
     printf '%s\n' "$HITS" | sed 's/^/          /'
